@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="row justify-content-center mt-5">
-    <div class="col-md-8">
+    <div class="col-lg">
         <h2 class="text-center">Spending Tracker</h2>
 
         <!-- Form for adding new transaction -->
@@ -26,6 +26,21 @@
                 </form>
             </div>
         </div>
+    </div>
+    <div class="col-lg">
+
+        <h2 class="text-center">Filter by Date</h2>
+
+        <form id="filterForm" method="GET" action="{% url 'index' %}">
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" name="startDate" required>
+
+            <label for="endDate">End Date:</label>
+            <input type="date" id="endDate" name="endDate" required>
+
+            <button type="submit">Filter</button>
+        </form>
+
 
         <!-- Table of Transactions -->
         <div class="card">
@@ -50,16 +65,6 @@
                 </table>
             </div>
         </div>
-
-        <form id="filterForm" method="GET" action="{% url 'index' %}">
-            <label for="startDate">Start Date:</label>
-            <input type="date" id="startDate" name="startDate" required>
-
-            <label for="endDate">End Date:</label>
-            <input type="date" id="endDate" name="endDate" required>
-
-            <button type="submit">Filter</button>
-        </form>
 
         <!-- Chart -->
         <canvas id="spendingChart" class="mt-5"></canvas>
