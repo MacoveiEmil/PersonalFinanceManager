@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8">
+        <h2 class="text-center">Spending Tracker</h2>
+
+        <!-- Form for adding new transaction -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="transactionForm" method="POST">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="description">Transaction Name</label>
+                        <input type="text" class="form-control" id="description" name="description" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">Amount</label>
+                        <input type="number" class="form-control" id="amount" name="amount" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="date">Date</label>
+                        <input type="date" class="form-control" id="date" name="date" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Add Transaction</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Table of Transactions -->
+        <div class="card">
+            <div class="card-body">
+                <table class="table table-striped text-center">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Amount</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionTable">
+                        {% for transaction in transactions %}
+                        <tr>
+                            <td>{{ transaction.description }}</td>
+                            <td>{{ transaction.amount }}</td>
+                            <td>{{ transaction.date|date:"Y-m-d" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <form id="filterForm" method="GET" action="{% url 'index' %}">
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" name="startDate" required>
+
+            <label for="endDate">End Date:</label>
+            <input type="date" id="endDate" name="endDate" required>
+
+            <button type="submit">Filter</button>
+        </form>
+
+        <!-- Chart -->
+        <canvas id="spendingChart" class="mt-5"></canvas>
+
+    </div>
+</div>
+
+<!-- JavaScript for Chart and AJAX -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    var spendingChart; // Declare the chart variable in the global scope
+
+    function drawChart(spendingData) {
+        var ctx = document.getElementById('spendingChart').getContext('2d');
+
+        // Check if the chart already exists and destroy it before creating a new one
+        if (spendingChart) {
+            spendingChart.destroy();
+        }
+
+        spendingChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: spendingData.map(entry => entry.date),
+                datasets: [{
+                    label: 'Spending Over Time',
+                    data: spendingData.map(entry => entry.total_amount),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true
+            }
+        });
+    }
+
+    // Call this function on page load
+    drawChart([{% for entry in spending_by_date %}{ "date": "{{ entry.date|date:"Y - m - d" }}", "total_amount": '{{ entry.total_amount }}' }, {% endfor %}]);
+
+    // AJAX for adding transactions and updating table/chart
+    document.getElementById('transactionForm').onsubmit = function (e) {
+        e.preventDefault();
+
+        var description = document.getElementById('description').value;
+        var amount = document.getElementById('amount').value;
+        var date = document.getElementById('date').value;
+
+        fetch("{% url 'add_transaction' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                "description": description,
+                "amount": amount,
+                "date": date
+            }),
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Update the table
+                var table = document.getElementById("transactionTable");
+                var newRow = table.insertRow();
+                newRow.innerHTML = `<td>${data.description}</td><td>${data.amount}</td><td>${data.date}</td>`;
+
+                // Update the chart
+                spendingChart.data.labels.push(data.date);
+                spendingChart.data.datasets[0].data.push(data.amount);
+                spendingChart.update();
+            });
+    };
+
+    $(document).ready(function () {
+        $('#filterForm').submit(function (event) {
+            event.preventDefault(); // Prevent default form submission
+
+            var startDate = $('#startDate').val();
+            var endDate = $('#endDate').val();
+
+            $.ajax({
+                url: '{% url "index" %}',  // URL to your index view
+                data: {
+                    startDate: startDate,
+                    endDate: endDate
+                },
+                success: function (data) {
+                    // Call the function to redraw the chart with new data
+                    drawChart(data.spending_by_date);
+
+                    // Update the transaction table
+                    updateTransactionTable(data.transactions);
+
+                }
+            });
+        });
+    });
+
+    // Function to update the transaction table
+    function updateTransactionTable(transactions) {
+        var tableBody = $("#transactionTable");
+        tableBody.empty(); // Clear the existing table rows
+
+        // Loop through each transaction and append to the table
+        transactions.forEach(function (transaction) {
+            var newRow = `<tr>
+            <td>${transaction.description}</td>
+            <td>${transaction.amount}</td>
+            <td>${transaction.date}</td>
+        </tr>`;
+            tableBody.append(newRow);
+        });
+    }
+</script>
+{% endblock %}
