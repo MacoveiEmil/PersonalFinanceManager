@@ -95,4 +95,12 @@ def index(request):
         'transactions' : transactions,
     })
 
-    
+def delete_transaction(request, id):
+    if request.method == 'DELETE':
+        try:
+            transaction = Transaction.objects.get(id=id)
+            transaction.delete()
+            return JsonResponse({'message': 'Transaction deleted successfully!'}, status=204)
+        except Transaction.DoesNotExist:
+            return JsonResponse({'error': 'Transaction not found!'}, status=404)
+    return JsonResponse({'error': 'Invalid request method.'}, status=400)
